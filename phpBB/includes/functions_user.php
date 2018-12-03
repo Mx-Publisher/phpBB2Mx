@@ -1,10 +1,10 @@
 <?php
 /**
-*
 * This file is part of the phpBB Forum Software package.
-*
-* @copyright (c) phpBB Limited <https://www.phpbb.com>
-* @license GNU General Public License, version 2 (GPL-2.0)
+* @package users
+* @version $Id$
+* @copyright (c) 2008 phpBB Group <https://www.phpbb.com>
+* @license http://opensource.org/licenses/gpl-license.php GNU Public License
 *
 * For full copyright and license information, please see
 * the docs/CREDITS.txt file.
@@ -16,9 +16,126 @@
 */
 if (!defined('IN_PHPBB'))
 {
-	exit;
+	die('Hacking attempt');
 }
 
+/*
+* Generate Ranks
+*/
+function generate_ranks($user_row, $ranks_array)
+{
+	$user_fields_array = array(
+		'user_rank',
+		'user_rank2',
+		'user_rank3',
+		'user_rank4',
+		'user_rank5'
+	);
+
+	$user_ranks_array = array(
+		'rank_01',
+		'rank_02',
+		'rank_03',
+		'rank_04',
+		'rank_05',
+	);
+
+	$user_ranks = array();
+
+	$is_banned = false;
+	$is_guest = false;
+	$rank_sw = false;
+
+	for($j = 0; $j < sizeof($user_ranks_array); $j++)
+	{
+		$user_ranks[$user_ranks_array[$j]] = '';
+		$user_ranks[$user_ranks_array[$j] . '_img'] = '';
+		$user_ranks[$user_ranks_array[$j] . '_html'] = '';
+		$user_ranks[$user_ranks_array[$j] . '_img_html'] = '';
+	}
+
+	if ($user_row['user_id'] == ANONYMOUS)
+	{
+		$is_guest = true;
+	}
+
+	if (!$is_guest && !empty($ranks_array['bannedrow']))
+	{
+		$is_banned = (isset($ranks_array['bannedrow'][$user_row['user_id']])) ? true : false;
+	}
+
+	foreach ($ranks_array['ranksrow'] as $rank_key => $rank_data)
+	{
+		$rank_tmp = $rank_data['rank_title'];
+		$rank_img_tmp = ($rank_data['rank_image']) ? '<img src="' . $rank_data['rank_image'] . '" alt="' . $rank_tmp . '" title="' . $rank_tmp . '" />' : '';
+		$rank_tmp = (empty($rank_data['rank_show_title']) && !empty($rank_img_tmp)) ? '' : $rank_tmp;
+		if (!empty($is_guest))
+		{
+			if ($rank_data['rank_special'] == '2')
+			{
+				$user_ranks['rank_01'] = $rank_tmp;
+				$user_ranks['rank_01_img'] = $rank_img_tmp;
+				$user_ranks['rank_01_html'] = !empty($rank_tmp) ? ($rank_tmp . '<br />') : '';
+				$user_ranks['rank_01_img_html'] = !empty($rank_img_tmp) ? ($rank_img_tmp . '<br />') : '';
+				break;
+			}
+		}
+		elseif (!empty($is_banned))
+		{
+			if ($rank_data['rank_special'] == '3')
+			{
+				$user_ranks['rank_01'] = $rank_tmp;
+				$user_ranks['rank_01_img'] = $rank_img_tmp;
+				$user_ranks['rank_01_html'] = !empty($rank_tmp) ? ($rank_tmp . '<br />') : '';
+				$user_ranks['rank_01_img_html'] = !empty($rank_img_tmp) ? ($rank_img_tmp . '<br />') : '';
+				break;
+			}
+		}
+		else
+		{
+			$day_diff = intval((time() - $user_row['user_regdate']) / 86400);
+
+			for($k = 0; $k < sizeof($user_fields_array); $k++)
+			{
+				switch ($rank_data['rank_special'])
+				{
+					case '1':
+						if ($user_row[$user_fields_array[$k]] == $rank_data['rank_id'])
+						{
+							$rank_sw = true;
+						}
+						break;
+					case '0':
+						if (($user_row[$user_fields_array[$k]] == '0') && ($user_row['user_posts'] >= $rank_data['rank_min']))
+						{
+							$rank_sw = true;
+						}
+						break;
+					case '-1':
+						if (($user_row[$user_fields_array[$k]] == '-1') && ($day_diff >= $rank_data['rank_min']))
+						{
+							$rank_sw = true;
+						}
+						break;
+					default:
+						break;
+				}
+
+				if (!empty($rank_sw))
+				{
+					$user_ranks[$user_ranks_array[$k]] = $rank_tmp;
+					$user_ranks[$user_ranks_array[$k] . '_img'] = $rank_img_tmp;
+					$user_ranks[$user_ranks_array[$k] . '_html'] = !empty($rank_tmp) ? ($rank_tmp . '<br />') : '';
+					$user_ranks[$user_ranks_array[$k] . '_img_html'] = !empty($rank_img_tmp) ? ($rank_img_tmp . '<br />') : '';
+					$rank_sw = false;
+				}
+			}
+
+		}
+	}
+
+	return $user_ranks;
+}
 /**
 * Obtain user_ids from usernames or vice versa. Returns false on
 * success else the error string
@@ -89,12 +206,12 @@ function user_get_id_name(&$user_id_ary, &$username_ary, $user_type = false)
 */
 function update_last_username()
 {
-	global $config, $db;
+	global $board_config, $config, $db;
 
 	// Get latest username
 	$sql = 'SELECT user_id, username, user_colour
 		FROM ' . USERS_TABLE . '
-		WHERE user_type IN (' . USER_NORMAL . ', ' . USER_FOUNDER . ')
+		WHERE user_type IN (' . USER . ', ' . ADMIN . ', ' . MOD . ', ' . GLOBAL_MOD . ')
 		ORDER BY user_id DESC';
 	$result = $db->sql_query_limit($sql, 1);
 	$row = $db->sql_fetchrow($result);
@@ -116,7 +233,7 @@ function update_last_username()
 */
 function user_update_name($old_name, $new_name)
 {
-	global $config, $db, $cache, $phpbb_dispatcher;
+	global $board_config, $db, $cache;
 
 	$update_ary = array(
 		FORUMS_TABLE			=> array(
@@ -146,25 +263,17 @@ function user_update_name($old_name, $new_name)
 		}
 	}
 
-	if ($config['newest_username'] == $old_name)
+	if ($board_config['newest_username'] == $old_name)
 	{
-		$config->set('newest_username', $new_name, false);
+		//$config->set('newest_username', $new_name, false);
+		set_config('newest_username', $new_name, true);
 	}
 
-	/**
-	* Update a username when it is changed
-	*
-	* @event core.update_username
-	* @var	string	old_name	The old username that is replaced
-	* @var	string	new_name	The new username
-	* @since 3.1.0-a1
-	*/
-	$vars = array('old_name', 'new_name');
-	extract($phpbb_dispatcher->trigger_event('core.update_username', compact($vars)));
-
 	// Because some tables/caches use username-specific data we need to purge this here.
-	$cache->destroy('sql', MODERATOR_CACHE_TABLE);
+	//$cache->destroy('sql', MODERATOR_CACHE_TABLE);
 }
+
+
 
 /**
 * Adds an user
@@ -176,22 +285,45 @@ function user_update_name($old_name, $new_name)
 */
 function user_add($user_row, $cp_data = false, $notifications_data = null)
 {
-	global $db, $config;
-	global $phpbb_dispatcher, $phpbb_container;
-
+	global $db, $board_config;
+	global $cache, $config;
+	
+	$cache = new cache();
+	
 	if (empty($user_row['username']) || !isset($user_row['group_id']) || !isset($user_row['user_email']) || !isset($user_row['user_type']))
 	{
 		return false;
 	}
-
+	
 	$username_clean = utf8_clean_string($user_row['username']);
-
+	
 	if (empty($username_clean))
 	{
 		return false;
 	}
+	
+	// newest user
+	//$sql_active_users $sql_active_users = ' AND user_active = 1 ';
+	$sql = "SELECT user_id, username
+		FROM " . USERS_TABLE . "
+		WHERE user_id <> " . ANONYMOUS . "
+		
+		ORDER BY user_id DESC
+		LIMIT 1";
+	$result = $db->sql_query($sql);
+	$row = $db->sql_fetchrow($result);
+	$db->sql_freeresult($result);
+	$newest_user_id = (int) $row['user_id'];
 
+	if ($board_config['last_user_id'] != $newest_user_id)
+	{
+		set_config('last_user_id', $newest_user_id);
+		$cache->destroy('newest_user');
+		$newest_user = $cache->obtain_newest_user();
+	}
+	
 	$sql_ary = array(
+		'user_id'				=> ($newest_user_id +1),
 		'username'			=> $user_row['username'],
 		'username_clean'	=> $username_clean,
 		'user_password'		=> (isset($user_row['user_password'])) ? $user_row['user_password'] : '',
@@ -204,12 +336,12 @@ function user_add($user_row, $cp_data = false, $notifications_data = null)
 	// These are the additional vars able to be specified
 	$additional_vars = array(
 		'user_permissions'	=> '',
-		'user_timezone'		=> $config['board_timezone'],
-		'user_dateformat'	=> $config['default_dateformat'],
-		'user_lang'			=> $config['default_lang'],
-		'user_style'		=> (int) $config['default_style'],
+		'user_timezone'		=> $board_config['board_timezone'],
+		'user_dateformat'	=> $board_config['default_dateformat'],
+		'user_lang'			=> $board_config['default_lang'],
+		'user_style'		=> (int) $board_config['default_style'],
 		'user_actkey'		=> '',
-		'user_ip'			=> '',
+		'user_ip'			=> $user_row['user_ip'],
 		'user_regdate'		=> time(),
 		'user_passchg'		=> time(),
 		'user_options'		=> 230271,
@@ -220,24 +352,24 @@ function user_add($user_row, $cp_data = false, $notifications_data = null)
 		'user_inactive_time'	=> 0,
 		'user_lastmark'			=> time(),
 		'user_lastvisit'		=> 0,
-		'user_lastpost_time'	=> 0,
+		//'user_lastpost_time'	=> 0,
 		'user_lastpage'			=> '',
 		'user_posts'			=> 0,
 		'user_colour'			=> '',
 		'user_avatar'			=> '',
-		'user_avatar_type'		=> '',
+		'user_avatar_type'		=> AVATAR_UPLOAD,
 		'user_avatar_width'		=> 0,
 		'user_avatar_height'	=> 0,
 		'user_new_privmsg'		=> 0,
 		'user_unread_privmsg'	=> 0,
 		'user_last_privmsg'		=> 0,
-		'user_message_rules'	=> 0,
-		'user_full_folder'		=> PRIVMSGS_NO_BOX,
+		//'user_message_rules'	=> 0,
+		//'user_full_folder'		=> PRIVMSGS_NO_BOX,
 		'user_emailtime'		=> 0,
 
 		'user_notify'			=> 0,
 		'user_notify_pm'		=> 1,
-		'user_notify_type'		=> NOTIFY_EMAIL,
+		//'user_notify_type'		=> NOTIFY_EMAIL,
 		'user_allow_pm'			=> 1,
 		'user_allow_viewonline'	=> 1,
 		'user_allow_viewemail'	=> 1,
@@ -245,7 +377,7 @@ function user_add($user_row, $cp_data = false, $notifications_data = null)
 
 		'user_sig'					=> '',
 		'user_sig_bbcode_uid'		=> '',
-		'user_sig_bbcode_bitfield'	=> '',
+		'user_sig_bbcode_bitfield'	=> '1111111111111',
 
 		'user_form_salt'			=> unique_id(),
 	);
@@ -268,23 +400,11 @@ function user_add($user_row, $cp_data = false, $notifications_data = null)
 		}
 	}
 
-	/**
-	* Use this event to modify the values to be inserted when a user is added
-	*
-	* @event core.user_add_modify_data
-	* @var array	user_row			Array of user details submitted to user_add
-	* @var array	cp_data				Array of Custom profile fields submitted to user_add
-	* @var array	sql_ary				Array of data to be inserted when a user is added
-	* @var array	notifications_data	Array of notification data to be inserted when a user is added
-	* @since 3.1.0-a1
-	* @changed 3.1.0-b5 Added user_row and cp_data
-	* @changed 3.1.11-RC1 Added notifications_data
-	*/
-	$vars = array('user_row', 'cp_data', 'sql_ary', 'notifications_data');
-	extract($phpbb_dispatcher->trigger_event('core.user_add_modify_data', compact($vars)));
-
 	$sql = 'INSERT INTO ' . USERS_TABLE . ' ' . $db->sql_build_array('INSERT', $sql_ary);
-	$db->sql_query($sql);
+	if ( !($result = $db->sql_query($sql)) )
+	{
+		message_die(CRITICAL_ERROR, 'Could not update user info', '<br /><br />SQL Error : ' . $db->sql_error('')['code'] . ' ' . $db->sql_error('')['message'] . ' <br />' . $sql, __LINE__, __FILE__, $sql);
+	}
 
 	$user_id = $db->sql_nextid();
 
@@ -296,8 +416,11 @@ function user_add($user_row, $cp_data = false, $notifications_data = null)
 		/* @var $cp \phpbb\profilefields\manager */
 		$cp = $phpbb_container->get('profilefields.manager');
 		$sql = 'INSERT INTO ' . PROFILE_FIELDS_DATA_TABLE . ' ' .
-			$db->sql_build_array('INSERT', $cp->build_insert_sql_array($cp_data));
-		$db->sql_query($sql);
+		$db->sql_build_array('INSERT', $cp->build_insert_sql_array($cp_data));
+		if ( !($result = $db->sql_query($sql)) )
+		{
+			message_die(CRITICAL_ERROR, 'Could not update user info', '', __LINE__, __FILE__, $sql);
+		}
 	}
 
 	// Place into appropriate group...
@@ -306,19 +429,25 @@ function user_add($user_row, $cp_data = false, $notifications_data = null)
 		'group_id'		=> (int) $user_row['group_id'],
 		'user_pending'	=> 0)
 	);
-	$db->sql_query($sql);
+	if ( !($result = $db->sql_query($sql)) )
+	{
+		message_die(CRITICAL_ERROR, 'Could not update user info', '', __LINE__, __FILE__, $sql);
+	}
 
 	// Now make it the users default group...
 	group_set_user_default($user_row['group_id'], array($user_id), false);
 
 	// Add to newly registered users group if user_new is 1
-	if ($config['new_member_post_limit'] && $sql_ary['user_new'])
+	if ($board_config['new_member_post_limit'] && $sql_ary['user_new'])
 	{
 		$sql = 'SELECT group_id
 			FROM ' . GROUPS_TABLE . "
 			WHERE group_name = 'NEWLY_REGISTERED'
 				AND group_type = " . GROUP_SPECIAL;
-		$result = $db->sql_query($sql);
+		if ( !($result = $db->sql_query($sql)) )
+		{
+				message_die(CRITICAL_ERROR, 'Could not update user info');
+		}
 		$add_group_id = (int) $db->sql_fetchfield('group_id');
 		$db->sql_freeresult($result);
 
@@ -330,7 +459,7 @@ function user_add($user_row, $cp_data = false, $notifications_data = null)
 			$phpbb_log->disable('admin');
 
 			// Add user to "newly registered users" group and set to default group if admin specified so.
-			if ($config['new_member_group_default'])
+			if ($board_config['new_member_group_default'])
 			{
 				group_user_add($add_group_id, $user_id, false, false, true);
 				$user_row['group_id'] = $add_group_id;
@@ -360,59 +489,99 @@ function user_add($user_row, $cp_data = false, $notifications_data = null)
 
 		$config->set('newest_user_colour', $row['group_colour'], false);
 	}
-
-	// Use default notifications settings if notifications_data is not set
-	if ($notifications_data === null)
-	{
-		$notifications_data = array(
-			array(
-				'item_type'	=> 'notification.type.post',
-				'method'	=> 'notification.method.email',
-			),
-			array(
-				'item_type'	=> 'notification.type.topic',
-				'method'	=> 'notification.method.email',
-			),
-		);
-	}
-
-	/**
-	* Modify the notifications data to be inserted in the database when a user is added
-	*
-	* @event core.user_add_modify_notifications_data
-	* @var array	user_row			Array of user details submitted to user_add
-	* @var array	cp_data				Array of Custom profile fields submitted to user_add
-	* @var array	sql_ary				Array of data to be inserted when a user is added
-	* @var array	notifications_data	Array of notification data to be inserted when a user is added
-	* @since 3.2.2-RC1
-	*/
-	$vars = array('user_row', 'cp_data', 'sql_ary', 'notifications_data');
-	extract($phpbb_dispatcher->trigger_event('core.user_add_modify_notifications_data', compact($vars)));
-
-	// Subscribe user to notifications if necessary
-	if (!empty($notifications_data))
-	{
-		/* @var $phpbb_notifications \phpbb\notification\manager */
-		$phpbb_notifications = $phpbb_container->get('notification_manager');
-		foreach ($notifications_data as $subscription)
-		{
-			$phpbb_notifications->add_subscription($subscription['item_type'], 0, $subscription['method'], $user_id);
-		}
-	}
-
-	/**
-	* Event that returns user id, user details and user CPF of newly registered user
-	*
-	* @event core.user_add_after
-	* @var int		user_id			User id of newly registered user
-	* @var array	user_row		Array of user details submitted to user_add
-	* @var array	cp_data			Array of Custom profile fields submitted to user_add
-	* @since 3.1.0-b5
-	*/
-	$vars = array('user_id', 'user_row', 'cp_data');
-	extract($phpbb_dispatcher->trigger_event('core.user_add_after', compact($vars)));
-
+	
 	return $user_id;
+}
+
+/**
+* Adds an username_clean
+*
+* @param mixed $user_row An array containing the following keys (and the appropriate values): username, group_id (the group to place the user in), user_email and the user_type(usually 0). Additional entries not overridden by defaults will be forwarded.
+* @param array $cp_data custom profile fields, see custom_profile::build_insert_sql_array
+* @param array $notifications_data The notifications settings for the new user
+* @return the new user's ID.
+*/
+function username_clean_add($user_row = array(), $cp_data = false, $notifications_data = null)
+{
+	global $db;
+	global $cache, $board_config;
+	
+	$cache = is_object($cache) ? $cache : new cache(false, defined('DEBUG')); //In sessions
+	
+	print('<p><span style="color: red;"></span></p><i><p>Refreshing the users table!</p></i>');
+	
+	/* uncomet to remove and add colomn * /
+	//$db_tools = $phpbb_container->get('dbal.tools');
+	// Setup $this->db_tools
+	if (!class_exists('phpbb_db_tools') && !class_exists('tools'))
+	{
+		include_once($phpbb_root_path . 'includes/db/tools.' . $phpEx);
+	}
+	if (class_exists('phpbb_db_tools'))
+	{
+		$this->db_tools = new phpbb_db_tools($this->db);
+	}
+	elseif (class_exists('tools'))
+	{
+		$this->db_tools = new tools($this->db);
+	}
+	$db_tools->sql_column_remove(USERS_TABLE, 'username_clean', false);
+	$db_tools->sql_column_add(USERS_TABLE, 'username_clean', array('column_type_sql' => 'varchar(255)', 'null' => 'NOT NULL', 'default' => '', 'after' => 'username'), false);
+	/* */
+	
+	$serch_field = '';
+	
+	$sql = "SELECT user_id, username
+		FROM " . USERS_TABLE . " 
+		ORDER BY user_id ASC";
+	$result = $db->sql_query($sql);
+
+	$echos = 0;
+
+	$user_row = $user_row ? $user_row : $db->sql_fetchrowset($result);
+	$newest_user_id = count($user_row);
+	print('<p><span style="color: red;"></span></p><i><p>Users '. $newest_user_id .'</p></i>');
+	
+	for($i = 0; $i < $newest_user_id; $i++)
+	{
+		$username_clean = utf8_clean_string($user_row[$i]['username']);
+		$user_id = (int) $user_row[$i]['user_id'];
+		
+		if (empty($username_clean))
+		{
+			print('<p><span style="color: red;"></span></p><i><p>Username Empty</p></i>');
+		}
+		
+		print('<p><span style="color: red;"></span></p><i><p>Refresh for '. $username_clean .'</p></i>');
+		
+		$sql = 'UPDATE ' . USERS_TABLE . "
+			SET username_clean = '" . $db->sql_escape($username_clean) . "'
+			WHERE user_id = " . $user_id;
+		$db->sql_query($sql);
+
+		if ($echos > 200)
+		{
+			echo '<br />' . "\n";
+			$echos = 0;
+		}
+
+		echo '.';
+		$echos++;
+
+		flush();
+	}
+	
+	/* * /
+	if ($board_config['last_user_id'] != $newest_user_id)
+	{
+		set_config('last_user_id', $newest_user_id);
+		$cache->destroy('newest_user');
+		$newest_user = $cache->obtain_newest_user();
+	}
+	/**/
+	$db->sql_freeresult($result);
+	
+	print('<p><span style="color: red;"></span></p><i><p>Refresh FINISHED!</p></i>');
 }
 
 /**
@@ -425,7 +594,7 @@ function user_add($user_row, $cp_data = false, $notifications_data = null)
  */
 function user_delete($mode, $user_ids, $retain_username = true)
 {
-	global $cache, $config, $db, $user, $phpbb_dispatcher, $phpbb_container;
+	global $cache, $board_config, $db, $user, $phpbb_dispatcher, $phpbb_container;
 	global $phpbb_root_path, $phpEx;
 
 	$db->sql_transaction('begin');
@@ -441,7 +610,10 @@ function user_delete($mode, $user_ids, $retain_username = true)
 	$sql = 'SELECT *
 		FROM ' . USERS_TABLE . '
 		WHERE ' . $user_id_sql;
-	$result = $db->sql_query($sql);
+	if ( !($result = $db->sql_query($sql)) )
+	{
+		message_die(CRITICAL_ERROR, 'Could not update user info');
+	}
 	while ($row = $db->sql_fetchrow($result))
 	{
 		$user_rows[(int) $row['user_id']] = $row;
@@ -452,22 +624,7 @@ function user_delete($mode, $user_ids, $retain_username = true)
 	{
 		return false;
 	}
-
-	/**
-	* Event before a user is deleted
-	*
-	* @event core.delete_user_before
-	* @var	string	mode		Mode of deletion (retain/delete posts)
-	* @var	array	user_ids	IDs of the deleted user
-	* @var	mixed	retain_username	True if username should be retained
-	*				or false if not
-	* @var	array	user_rows	Array containing data of the deleted users
-	* @since 3.1.0-a1
-	* @changed 3.2.4-RC1 Added user_rows
-	*/
-	$vars = array('mode', 'user_ids', 'retain_username', 'user_rows');
-	extract($phpbb_dispatcher->trigger_event('core.delete_user_before', compact($vars)));
-
+	
 	// Before we begin, we will remove the reports the user issued.
 	$sql = 'SELECT r.post_id, p.topic_id
 		FROM ' . REPORTS_TABLE . ' r, ' . POSTS_TABLE . ' p
@@ -520,7 +677,10 @@ function user_delete($mode, $user_ids, $retain_username = true)
 			$sql = 'UPDATE ' . TOPICS_TABLE . '
 				SET topic_reported = 0
 				WHERE ' . $db->sql_in_set('topic_id', $report_topics);
-			$db->sql_query($sql);
+			if ( !($result = $db->sql_query($sql)) )
+			{
+					message_die(CRITICAL_ERROR, 'Could not update topic info');
+			}
 		}
 	}
 
@@ -666,7 +826,7 @@ function user_delete($mode, $user_ids, $retain_username = true)
 		delete_posts('poster_id', $user_ids);
 	}
 
-	$table_ary = array(USERS_TABLE, USER_GROUP_TABLE, TOPICS_WATCH_TABLE, FORUMS_WATCH_TABLE, ACL_USERS_TABLE, TOPICS_TRACK_TABLE, TOPICS_POSTED_TABLE, FORUMS_TRACK_TABLE, PROFILE_FIELDS_DATA_TABLE, MODERATOR_CACHE_TABLE, DRAFTS_TABLE, BOOKMARKS_TABLE, SESSIONS_KEYS_TABLE, PRIVMSGS_FOLDER_TABLE, PRIVMSGS_RULES_TABLE, $phpbb_container->getParameter('tables.auth_provider_oauth_token_storage'), $phpbb_container->getParameter('tables.auth_provider_oauth_states'), $phpbb_container->getParameter('tables.auth_provider_oauth_account_assoc'));
+	$table_ary = array(USERS_TABLE, USER_GROUP_TABLE, TOPICS_WATCH_TABLE, FORUMS_WATCH_TABLE, ACL_USERS_TABLE, TOPICS_TRACK_TABLE, TOPICS_POSTED_TABLE, FORUMS_TRACK_TABLE, PROFILE_FIELDS_DATA_TABLE, MODERATOR_CACHE_TABLE, DRAFTS_TABLE, BOOKMARKS_TABLE, SESSIONS_KEYS_TABLE, PRIVMSGS_FOLDER_TABLE, PRIVMSGS_RULES_TABLE);
 
 	// Delete the miscellaneous (non-post) data for the user
 	foreach ($table_ary as $table)
@@ -741,23 +901,8 @@ function user_delete($mode, $user_ids, $retain_username = true)
 
 	$db->sql_transaction('commit');
 
-	/**
-	* Event after a user is deleted
-	*
-	* @event core.delete_user_after
-	* @var	string	mode		Mode of deletion (retain/delete posts)
-	* @var	array	user_ids	IDs of the deleted user
-	* @var	mixed	retain_username	True if username should be retained
-	*				or false if not
-	* @var	array	user_rows	Array containing data of the deleted users
-	* @since 3.1.0-a1
-	* @changed 3.2.2-RC1 Added user_rows
-	*/
-	$vars = array('mode', 'user_ids', 'retain_username', 'user_rows');
-	extract($phpbb_dispatcher->trigger_event('core.delete_user_after', compact($vars)));
-
 	// Reset newest user info if appropriate
-	if (in_array($config['newest_user_id'], $user_ids))
+	if (in_array($board_config['newest_user_id'], $user_ids))
 	{
 		update_last_username();
 	}
@@ -765,6 +910,344 @@ function user_delete($mode, $user_ids, $retain_username = true)
 	return false;
 }
 
+/*
+* Fake User Profile
+*/
+function user_profile_mask(&$user_data)
+{
+	global $board_config, $lang;
+
+	$user_data['user_id'] = ANONYMOUS;
+	$user_data['username'] = $lang['INACTIVE_USER'];
+	$user_data['user_first_name'] = '';
+	$user_data['user_last_name'] = '';
+	$user_data['post_username'] = $user_data['username'];
+	$user_data['user_color'] = '';
+	$user_data['user_level'] = USER;
+	$user_data['user_regdate'] = $board_config['board_startdate'];
+	$user_data['user_from'] = '';
+	$user_data['user_from_flag'] = '';
+	$user_data['user_birthday'] = 999999;
+	$user_data['user_posts'] = 0;
+	$user_data['user_personal_pics_count'] = 0;
+	$user_data['user_avatar'] = '';
+	$user_data['user_avatar_type'] = 0;
+	$user_data['user_allowavatar'] = 0;
+	$user_data['user_lang'] = $board_config['default_lang'];
+	$user_data['user_style'] = $board_config['default_style'];
+	$user_data['user_rank'] = '-2';
+	$user_data['user_rank_2'] = '-2';
+	$user_data['user_rank_3'] = '-2';
+	$user_data['user_rank_4'] = '-2';
+	$user_data['user_rank_5'] = '-2';
+	$user_data['user_allow_viewemail'] = 0;
+	$user_data['user_website'] = '';
+	$user_data['user_gender'] = 0;
+	$user_data['user_allow_viewonline'] = 0;
+	$user_data['user_session_time'] = 0;
+	$user_data['poster_ip'] = '';
+	$user_data['user_warnings'] = 0;
+	$user_data['user_sig'] = '';
+
+	$user_sn_im_array = get_user_sn_im_array();
+	foreach ($user_sn_im_array as $k => $v)
+	{
+		$user_data[$v['field']] = '';
+	}
+
+	return true;
+}
+
+/**
+* Create the sql needed to query the color... this is used also to precisely locate the cache file!
+*/
+function user_color_sql($user_id)
+{
+	$sql = "SELECT u.username, u.user_active, u.user_mask, u.user_color, u.group_id
+		FROM " . USERS_TABLE . " u
+		WHERE u.user_id = '" . $user_id . "'
+			LIMIT 1";
+	return $sql;
+}
+
+/**
+* Create a profile link for the user with his own color
+*/
+function colorize_username($user_id, $username = '', $user_color = '', $user_active = true, $no_profile = false, $get_only_color_style = false, $from_db = false, $force_cache = false, $alt_link_url = '')
+{
+	global $db, $config, $lang;
+
+	$user_id = empty($user_id) ? ANONYMOUS : $user_id;
+	$is_guest = ($user_id == ANONYMOUS) ? true : false;
+
+	if ((!$is_guest && $from_db) || (!$is_guest && empty($username) && empty($user_color)))
+	{
+		// Get the user info and see if they are assigned a color_group
+		$sql = user_color_sql($user_id);
+		$cache_cleared = (CACHE_COLORIZE && defined('IN_ADMIN')) ? clear_user_color_cache($user_id) : false;
+		$result = ((CACHE_COLORIZE || $force_cache) && !defined('IN_ADMIN')) ? $db->sql_query($sql, 0, POST_USERS_URL . '_', USERS_CACHE_FOLDER) : $db->sql_query($sql);
+		$sql_row = array();
+		$row = array();
+		while ($sql_row = $db->sql_fetchrow($result))
+		{
+			$row = $sql_row;
+		}
+		$db->sql_freeresult($result);
+		$user_mask = (empty($row['user_active']) && !empty($row['user_mask'])) ? true : false;
+		if (!empty($user_mask))
+		{
+			global $user;
+			$user_mask = ($user->data['user_level'] == ADMIN) ? false : true;
+		}
+		$user_id = $user_mask ? ANONYMOUS : $user_id;
+		$username = $user_mask ? $lang['INACTIVE_USER'] : $row['username'];
+		$user_color = $user_mask ? '' : $row['user_color'];
+		$user_active = $row['user_active'];
+	}
+
+	$username = (($user_id == ANONYMOUS) || empty($username)) ? $lang['Guest'] : str_replace('&amp;amp;', '&amp;', htmlspecialchars($username));
+	$user_link_url = !empty($alt_link_url) ? str_replace('$USER_ID', $user_id, $alt_link_url) : ((defined('USER_LINK_URL_OVERRIDE')) ? str_replace('$USER_ID', $user_id, USER_LINK_URL_OVERRIDE) : (CMS_PAGE_PROFILE . '?mode=viewprofile&amp;' . POST_USERS_URL . '=' . $user_id));
+	$user_link_style = '';
+	$user_link_begin = '<a href="' . append_sid(IP_ROOT_PATH . $user_link_url) . '"';
+	$user_link_end = '>' . $username . '</a>';
+
+	if (!$user_active || $is_guest)
+	{
+		$user_link = $user_link_begin . $user_link_style . $user_link_end;
+		$user_link = ($no_profile || $is_guest) ? $username : $user_link;
+		$user_link = ($get_only_color_style) ? '' : $user_link;
+	}
+	else
+	{
+		$user_color = check_valid_color($user_color);
+		$user_color = ($user_color != false) ? $user_color : $config['active_users_color'];
+		$user_link_style = ' style="font-weight: bold; text-decoration: none; color: ' . $user_color . ';"';
+
+		if ($no_profile)
+		{
+			$user_link = '<span' . $user_link_style . '>' . $username . '</span>';
+		}
+		else
+		{
+			$user_link = $user_link_begin . $user_link_style . $user_link_end;
+		}
+
+		$user_link = ($get_only_color_style) ? $user_link_style : $user_link;
+	}
+
+	return $user_link;
+}
+
+/*
+* Top X Posters
+*/
+function top_posters($user_limit, $show_admins = true, $show_mods = true, $only_array = false)
+{
+	global $db;
+	$sql_level = ($show_admins && $show_mods) ? '' : ("AND u.user_level IN (" . USER . ($show_mods ? (", " . MOD) : '') . ($show_admins ? (", " . JUNIOR_ADMIN . ", " . ADMIN) : '') . ")");
+
+	$sql = "SELECT u.username, u.user_id, u.user_active, u.user_color, u.user_level, u.user_posts, u.user_avatar, u.user_avatar_type, u.user_allowavatar
+	FROM " . USERS_TABLE . " u
+	WHERE (u.user_id <> " . ANONYMOUS . ")
+		AND u.user_active = 1
+		" . $sql_level . "
+	ORDER BY u.user_posts DESC
+	LIMIT " . $user_limit;
+	$result = $db->sql_query($sql, 0, 'posts_top_posters_', POSTS_CACHE_FOLDER);
+
+	$top_posters = '';
+	$top_posters_array = array();
+	while($row = $db->sql_fetchrow($result))
+	{
+		$top_posters .= (($top_posters == '') ? '' : ', ') . colorize_username($row['user_id'], $row['username'], $row['user_color'], $row['user_active']) . ' (' . $row['user_posts'] . ')';
+		$top_posters_array[] = $row;
+	}
+	$db->sql_freeresult($result);
+
+	$return_value = ($only_array == true) ? $top_posters_array : $top_posters;
+	return $return_value;
+}
+
+/**
+* Sends a birthday PM
+*/
+function birthday_pm_send()
+{
+	global $db, $cache, $board_config, $user, $lang, $phpEx;
+
+	// Birthday - BEGIN
+	// Check if the user has or have had birthday, also see if greetings are enabled
+	if (($user->data['user_birthday'] != 999999) && !empty($board_config['birthday_greeting']) && (create_date('Ymd', time(), $board_config['board_timezone']) >= $user->data['user_next_birthday_greeting'] . realdate('md', $user->data['user_birthday'])))
+	{
+		// If a user had a birthday more than one week before we will not send the PM...
+		if ((time() - gmmktime(0, 0, 0, $user->data['user_birthday_m'], $user->data['user_birthday_d'], $user->data['user_next_birthday_greeting'])) <= (86400 * 8))
+		{
+			// Birthday PM - BEGIN
+			$pm_subject = $lang['Greeting_Messaging'];
+			$pm_date = gmdate('U');
+
+			$year = create_date('Y', time(), $board_config['board_timezone']);
+			$date_today = create_date('Ymd', time(), $board_config['board_timezone']);
+			$user_birthday = realdate('md', $user->data['user_birthday']);
+			$user_birthday2 = (($year . $user_birthday < $date_today) ? ($year + 1) : $year) . $user_birthday;
+
+			$user_age = create_date('Y', time(), $board_config['board_timezone']) - realdate('Y', $user->data['user_birthday']);
+			if (create_date('md', time(), $board_config['board_timezone']) < realdate('md', $user->data['user_birthday']))
+			{
+				$user_age--;
+			}
+
+			$pm_text = ($user_birthday2 == $date_today) ? sprintf($lang['Birthday_greeting_today'], $user_age) : sprintf($lang['Birthday_greeting_prev'], $user_age, realdate(str_replace('Y', '', $lang['DATE_FORMAT_BIRTHDAY']), $user->data['user_birthday']) . ((!empty($user->data['user_next_birthday_greeting']) ? ($user->data['user_next_birthday_greeting']) : '')));
+
+			$founder_id = (defined('FOUNDER_ID') ? FOUNDER_ID : get_founder_id());
+
+			include_once(IP_ROOT_PATH . 'includes/class_pm.' . $phpEx);
+			$privmsg_subject = sprintf($pm_subject, $board_config['sitename']);
+			$privmsg_message = sprintf($pm_text, $board_config['sitename'], $board_config['sitename']);
+			$privmsg_sender = $founder_id;
+			$privmsg_recipient = $user->data['user_id'];
+
+			$privmsg = new class_pm();
+			$privmsg->delete_older_message('PM_INBOX', $privmsg_recipient);
+			$privmsg->send($privmsg_sender, $privmsg_recipient, $privmsg_subject, $privmsg_message);
+			unset($privmsg);
+			// Birthday PM - END
+		}
+
+		// Update next greetings year
+		$sql = "UPDATE " . USERS_TABLE . "
+			SET user_next_birthday_greeting = " . (create_date('Y', time(), $board_config['board_timezone']) + 1) . "
+			WHERE user_id = " . $user->data['user_id'];
+		$status = $db->sql_query($sql);
+	} //Sorry user shall not have a greeting this year
+	// Birthday - END
+
+}
+
+/**
+* Sends a birthday Email
+*/
+function birthday_email_send()
+{
+	global $db, $cache, $board_config, $lang, $phpEx;
+
+	if (!class_exists('emailer'))
+	{
+		@include(IP_ROOT_PATH . 'includes/emailer.' . $phpEx);
+	}
+	$server_url = create_server_url();
+
+	$birthdays_list = get_birthdays_list_email();
+	foreach ($birthdays_list as $k => $v)
+	{
+		// Birthday - BEGIN
+		// Check if the user has or have had birthday, also see if greetings are enabled
+		if (!empty($board_config['birthday_greeting']))
+		{
+			// Birthday Email - BEGIN
+			setup_extra_lang(array('lang_cron_vars'), '', $v['user_lang']);
+
+			$year = create_date('Y', time(), $v['user_timezone']);
+			$date_today = create_date('Ymd', time(), $v['user_timezone']);
+			$user_birthday = realdate('md', $v['user_birthday']);
+			$user_birthday2 = (($year . $user_birthday < $date_today) ? ($year + 1) : $year) . $user_birthday;
+
+			$user_age = create_date('Y', time(), $v['user_timezone']) - realdate('Y', $v['user_birthday']);
+			if (create_date('md', time(), $v['user_timezone']) < realdate('md', $v['user_birthday']))
+			{
+				$user_age--;
+			}
+
+			$email_subject = sprintf($lang['BIRTHDAY_GREETING_EMAIL_SUBJECT'], $board_config['sitename']);
+			//$email_text = sprintf($lang['BIRTHDAY_GREETING_EMAIL_CONTENT_AGE'], $user_age);
+			$email_text = sprintf($lang['BIRTHDAY_GREETING_EMAIL_CONTENT'], $board_config['sitename']);
+
+			// Send the email!
+			$emailer = new emailer();
+
+			$emailer->use_template('birthday_greeting', $v['user_lang']);
+			$emailer->to($v['user_email']);
+
+			// If for some reason the mail template subject cannot be read... note it will not necessarily be in the posters own language!
+			$emailer->set_subject($email_subject);
+
+			$v['username'] = !empty($v['user_first_name']) ? $v['user_first_name'] : $v['username'];
+
+			// This is a nasty kludge to remove the username var ... till (if?) translators update their templates
+			$emailer->msg = preg_replace('#[ ]?{USERNAME}#', $v['username'], $emailer->msg);
+
+			$email_sig = create_signature($board_config['board_email_sig']);
+			$emailer->assign_vars(array(
+				'USERNAME' => !empty($board_config['html_email']) ? htmlspecialchars($v['username']) : $v['username'],
+				'USER_AGE' => $user_age,
+				'EMAIL_SIG' => $email_sig,
+				'SITENAME' => $board_config['sitename'],
+				'SITE_URL' => $server_url
+				)
+			);
+
+			$emailer->send();
+			$emailer->reset();
+			// Birthday Email - END
+
+			$sql = "UPDATE " . USERS_TABLE . "
+				SET user_next_birthday_greeting = " . (create_date('Y', time(), $v['user_timezone']) + 1) . "
+				WHERE user_id = " . $v['user_id'];
+			$status = $db->sql_query($sql);
+		}
+		// Birthday - END
+	}
+	// We reset the lang again for default lang...
+	setup_extra_lang(array('lang_cron_vars'));
+}
+
+/**
+* Get the birthdays list to send greetings email.
+*/
+function get_birthdays_list_email()
+{
+	global $db, $cache;
+
+	// Since the highest timezone is +12, we start twelve hours later... we also need to keep into account that -12 and +12 have one day delay!
+	$time_now = time();
+	$time_now_12 = $time_now + (60 * 60 * 12);
+	$b_h = gmdate('G', $time_now);
+	$timezone_delta = ($b_h == 0) ? 0 : (($b_h < 12) ? -$bh : (24 - $b_h));
+	$b_y = gmdate('Y', $time_now_12);
+	$b_m = gmdate('n', $time_now_12);
+	$b_d = gmdate('j', $time_now_12);
+
+	$sql_where = ' ((u.user_birthday_y <= ' . $b_y . ') AND (u.user_birthday_m = ' . $b_m . ') AND (u.user_birthday_d = ' . $b_d . ')) ';
+
+	if ((gmdate('L', $time_now_12) == 0) && ($b_m == 3) && ($b_d == 1))
+	{
+		$sql_where .= ' OR ((u.user_birthday_y <= ' . $b_y . ') AND (u.user_birthday_m = 2) AND (u.user_birthday_d = 29)) ';
+	}
+
+	$sql_timezone = '(user_timezone LIKE "' . $timezone_delta . '.%")';
+	if ($timezone_delta == 12)
+	{
+		$sql_timezone = ' AND (' . $sql_timezone . ' OR (user_timezone LIKE "-' . $timezone_delta . '.%")) ';
+	}
+	else
+	{
+		$sql_timezone = ' AND ' . $sql_timezone . ' ';
+	}
+
+	$sql_where = ' AND (u.user_birthday <> 999999) AND (user_active = 1) AND (user_allow_mass_email = 1) ' . $sql_timezone . ' AND (' . $sql_where . ')';
+
+	// Changed sorting by username_clean instead of username
+	$sql = "SELECT u.user_id, u.username, u.user_first_name, u.user_active, u.user_color, u.user_email, u.user_timezone, u.user_lang, u.user_birthday, u.user_birthday_y, u.user_birthday_m, u.user_birthday_d, u.user_next_birthday_greeting
+				FROM " . USERS_TABLE . " AS u
+				WHERE u.user_id <> " . ANONYMOUS . "
+				" . $sql_where . "
+				ORDER BY username_clean";
+	$result = $db->sql_query($sql);
+	$birthdays_list = $db->sql_fetchrowset($result);
+	$db->sql_freeresult($result);
+
+	return $birthdays_list;
+}
 /**
 * Flips user_type from active to inactive and vice versa, handles group membership updates
 *
@@ -772,7 +1255,7 @@ function user_delete($mode, $user_ids, $retain_username = true)
 */
 function user_active_flip($mode, $user_id_ary, $reason = INACTIVE_MANUAL)
 {
-	global $config, $db, $user, $auth, $phpbb_dispatcher;
+	global $board_config, $db, $user, $auth, $phpbb_dispatcher;
 
 	$deactivated = $activated = 0;
 	$sql_statements = array();
@@ -825,21 +1308,6 @@ function user_active_flip($mode, $user_id_ary, $reason = INACTIVE_MANUAL)
 	}
 	$db->sql_freeresult($result);
 
-	/**
-	* Check or modify activated/deactivated users data before submitting it to the database
-	*
-	* @event core.user_active_flip_before
-	* @var	string	mode			User type changing mode, can be: flip|activate|deactivate
-	* @var	int		reason			Reason for changing user type, can be: INACTIVE_REGISTER|INACTIVE_PROFILE|INACTIVE_MANUAL|INACTIVE_REMIND
-	* @var	int		activated		The number of users to be activated
-	* @var	int		deactivated		The number of users to be deactivated
-	* @var	array	user_id_ary		Array with user ids to change user type
-	* @var	array	sql_statements	Array with users data to submit to the database, keys: user ids, values: arrays with user data
-	* @since 3.1.4-RC1
-	*/
-	$vars = array('mode', 'reason', 'activated', 'deactivated', 'user_id_ary', 'sql_statements');
-	extract($phpbb_dispatcher->trigger_event('core.user_active_flip_before', compact($vars)));
-
 	if (count($sql_statements))
 	{
 		foreach ($sql_statements as $user_id => $sql_ary)
@@ -853,29 +1321,14 @@ function user_active_flip($mode, $user_id_ary, $reason = INACTIVE_MANUAL)
 		$auth->acl_clear_prefetch(array_keys($sql_statements));
 	}
 
-	/**
-	* Perform additional actions after the users have been activated/deactivated
-	*
-	* @event core.user_active_flip_after
-	* @var	string	mode			User type changing mode, can be: flip|activate|deactivate
-	* @var	int		reason			Reason for changing user type, can be: INACTIVE_REGISTER|INACTIVE_PROFILE|INACTIVE_MANUAL|INACTIVE_REMIND
-	* @var	int		activated		The number of users to be activated
-	* @var	int		deactivated		The number of users to be deactivated
-	* @var	array	user_id_ary		Array with user ids to change user type
-	* @var	array	sql_statements	Array with users data to submit to the database, keys: user ids, values: arrays with user data
-	* @since 3.1.4-RC1
-	*/
-	$vars = array('mode', 'reason', 'activated', 'deactivated', 'user_id_ary', 'sql_statements');
-	extract($phpbb_dispatcher->trigger_event('core.user_active_flip_after', compact($vars)));
-
 	if ($deactivated)
 	{
-		$config->increment('num_users', $deactivated * (-1), false);
+		$board_config->increment('num_users', $deactivated * (-1), false);
 	}
 
 	if ($activated)
 	{
-		$config->increment('num_users', $activated, false);
+		$board_config->increment('num_users', $activated, false);
 	}
 
 	// Update latest username
@@ -1393,24 +1846,10 @@ function user_unban($mode, $ban)
 			}
 		}
 
-		/**
-		* Use this event to perform actions after the unban has been performed
-		*
-		* @event core.user_unban
-		* @var	string	mode			One of the following: user, ip, email
-		* @var	array	user_ids_ary	Array with user_ids
-		* @since 3.1.11-RC1
-		*/
-		$vars = array(
-			'mode',
-			'user_ids_ary',
-		);
-		extract($phpbb_dispatcher->trigger_event('core.user_unban', compact($vars)));
-	}
-
 	$cache->destroy('sql', BANLIST_TABLE);
 
 	return false;
+	}
 }
 
 /**
@@ -1429,13 +1868,20 @@ function user_ipwhois($ip)
 		return '';
 	}
 
-	if (!preg_match(get_preg_expression('ipv4'), $ip) && !preg_match(get_preg_expression('ipv6'), $ip))
+	if (preg_match(get_preg_expression('ipv4'), $ip))
+	{
+		// IPv4 address
+		$whois_host = 'whois.arin.net.';
+	}
+	else if (preg_match(get_preg_expression('ipv6'), $ip))
+	{
+		// IPv6 address
+		$whois_host = 'whois.sixxs.net.';
+	}
+	else
 	{
 		return '';
 	}
-
-	// IPv4 & IPv6 addresses
-	$whois_host = 'whois.arin.net.';
 
 	$ipwhois = '';
 
@@ -1699,7 +2145,7 @@ function phpbb_validate_timezone($timezone)
 */
 function validate_username($username, $allowed_username = false)
 {
-	global $config, $db, $user, $cache;
+	global $board_config, $db, $user, $cache;
 
 	$clean_username = utf8_clean_string($username);
 	$allowed_username = ($allowed_username === false) ? $user->data['username_clean'] : utf8_clean_string($allowed_username);
@@ -1715,7 +2161,7 @@ function validate_username($username, $allowed_username = false)
 		return 'INVALID_CHARS';
 	}
 
-	switch ($config['allow_name_chars'])
+	switch ($board_config['allow_name_chars'])
 	{
 		case 'USERNAME_CHARS_ANY':
 			$regex = '.+';
@@ -1792,9 +2238,9 @@ function validate_username($username, $allowed_username = false)
 */
 function validate_password($password)
 {
-	global $config;
+	global $board_config;
 
-	if ($password === '' || $config['pass_complex'] === 'PASS_TYPE_ANY')
+	if ($password === '' || $board_config['pass_complex'] === 'PASS_TYPE_ANY')
 	{
 		// Password empty or no password complexity required.
 		return false;
@@ -1806,7 +2252,7 @@ function validate_password($password)
 	$sym = '[^\p{Lu}\p{Ll}\p{N}]';
 	$chars = array();
 
-	switch ($config['pass_complex'])
+	switch ($board_config['pass_complex'])
 	{
 		// No break statements below ...
 		// We require strong passwords in case pass_complex is not set or is invalid
@@ -1844,11 +2290,11 @@ function validate_password($password)
 *
 * @return mixed Either false if validation succeeded or a string which will be used as the error message (with the variable name appended)
 */
-function phpbb_validate_email($email, $config = null)
+function phpbb_validate_email($email, $board_config = null)
 {
-	if ($config === null)
+	if ($board_config === null)
 	{
-		global $config;
+		global $board_config;
 	}
 
 	$email = strtolower($email);
@@ -1860,7 +2306,7 @@ function phpbb_validate_email($email, $config = null)
 
 	// Check MX record.
 	// The idea for this is from reading the UseBB blog/announcement. :)
-	if ($config['email_check_mx'])
+	if ($board_config['email_check_mx'])
 	{
 		list(, $domain) = explode('@', $email);
 
@@ -1883,7 +2329,7 @@ function phpbb_validate_email($email, $config = null)
 */
 function validate_user_email($email, $allowed_email = false)
 {
-	global $config, $db, $user;
+	global $board_config, $db, $user;
 
 	$email = strtolower($email);
 	$allowed_email = ($allowed_email === false) ? strtolower($user->data['user_email']) : strtolower($allowed_email);
@@ -1893,7 +2339,7 @@ function validate_user_email($email, $allowed_email = false)
 		return false;
 	}
 
-	$validate_email = phpbb_validate_email($email, $config);
+	$validate_email = phpbb_validate_email($email, $board_config);
 	if ($validate_email)
 	{
 		return $validate_email;
@@ -1904,7 +2350,7 @@ function validate_user_email($email, $allowed_email = false)
 		return ($ban_reason === true) ? 'EMAIL_BANNED' : $ban_reason;
 	}
 
-	if (!$config['allow_emailreuse'])
+	if (!$board_config['allow_emailreuse'])
 	{
 		$sql = 'SELECT user_email_hash
 			FROM ' . USERS_TABLE . "
@@ -2174,7 +2620,7 @@ function phpbb_style_is_active($style_id)
 */
 function avatar_delete($mode, $row, $clean_db = false)
 {
-	global $config, $phpbb_container;
+	global $board_config, $phpbb_container;
 
 	$storage = $phpbb_container->get('storage.avatar');
 
@@ -2212,7 +2658,7 @@ function avatar_delete($mode, $row, $clean_db = false)
 */
 function get_avatar_filename($avatar_entry)
 {
-	global $config;
+	global $board_config;
 
 	if ($avatar_entry[0] === 'g')
 	{
@@ -2225,7 +2671,7 @@ function get_avatar_filename($avatar_entry)
 	}
 	$ext 			= substr(strrchr($avatar_entry, '.'), 1);
 	$avatar_entry	= intval($avatar_entry);
-	return $config['avatar_salt'] . '_' . (($avatar_group) ? 'g' : '') . $avatar_entry . '.' . $ext;
+	return $board_config['avatar_salt'] . '_' . (($avatar_group) ? 'g' : '') . $avatar_entry . '.' . $ext;
 }
 
 /**
@@ -2235,12 +2681,12 @@ function get_avatar_filename($avatar_entry)
 */
 function phpbb_avatar_explanation_string()
 {
-	global $config, $user;
+	global $board_config, $user;
 
-	return $user->lang(($config['avatar_filesize'] == 0) ? 'AVATAR_EXPLAIN_NO_FILESIZE' : 'AVATAR_EXPLAIN',
-		$user->lang('PIXELS', (int) $config['avatar_max_width']),
-		$user->lang('PIXELS', (int) $config['avatar_max_height']),
-		round($config['avatar_filesize'] / 1024));
+	return $user->lang(($board_config['avatar_filesize'] == 0) ? 'AVATAR_EXPLAIN_NO_FILESIZE' : 'AVATAR_EXPLAIN',
+		$user->lang('PIXELS', (int) $board_config['avatar_max_width']),
+		$user->lang('PIXELS', (int) $board_config['avatar_max_height']),
+		round($board_config['avatar_filesize'] / 1024));
 }
 
 //
@@ -2522,14 +2968,14 @@ function group_create(&$group_id, $type, $name, $desc, $group_attributes, $allow
 */
 function group_correct_avatar($group_id, $old_entry)
 {
-	global $config, $db, $phpbb_container;
+	global $board_config, $db, $phpbb_container;
 
 	$storage = $phpbb_container->get('storage.avatar');
 
 	$group_id		= (int) $group_id;
 	$ext 			= substr(strrchr($old_entry, '.'), 1);
 	$old_filename 	= get_avatar_filename($old_entry);
-	$new_filename 	= $config['avatar_salt'] . "_g$group_id.$ext";
+	$new_filename 	= $board_config['avatar_salt'] . "_g$group_id.$ext";
 	$new_entry 		= 'g' . $group_id . '_' . substr(time(), -5) . ".$ext";
 
 	try
@@ -2647,17 +3093,6 @@ function group_delete($group_id, $group_name = false)
 	$sql = 'DELETE FROM ' . ACL_GROUPS_TABLE . "
 		WHERE group_id = $group_id";
 	$db->sql_query($sql);
-
-	/**
-	* Event after a group is deleted
-	*
-	* @event core.delete_group_after
-	* @var	int		group_id	ID of the deleted group
-	* @var	string	group_name	Name of the deleted group
-	* @since 3.1.0-a1
-	*/
-	$vars = array('group_id', 'group_name');
-	extract($phpbb_dispatcher->trigger_event('core.delete_group_after', compact($vars)));
 
 	// Re-cache moderators
 	if (!function_exists('phpbb_cache_moderators'))
@@ -2816,9 +3251,9 @@ function group_user_add($group_id, $user_id_ary = false, $username_ary = false, 
 */
 function group_user_del($group_id, $user_id_ary = false, $username_ary = false, $group_name = false, $log_action = true)
 {
-	global $db, $auth, $config, $user, $phpbb_dispatcher, $phpbb_container, $phpbb_log;
+	global $db, $auth, $board_config, $user, $phpbb_dispatcher, $phpbb_container, $phpbb_log;
 
-	if ($config['coppa_enable'])
+	if ($board_config['coppa_enable'])
 	{
 		$group_order = array('ADMINISTRATORS', 'GLOBAL_MODERATORS', 'NEWLY_REGISTERED', 'REGISTERED_COPPA', 'REGISTERED', 'BOTS', 'GUESTS');
 	}
@@ -3131,16 +3566,6 @@ function group_user_attributes($action, $group_id, $user_id_ary = false, $userna
 					AND " . $db->sql_in_set('user_id', $user_id_ary);
 			$db->sql_query($sql);
 
-			/* @var $phpbb_notifications \phpbb\notification\manager */
-			$phpbb_notifications = $phpbb_container->get('notification_manager');
-
-			$phpbb_notifications->add_notifications('notification.type.group_request_approved', array(
-				'user_ids'		=> $user_id_ary,
-				'group_id'		=> $group_id,
-				'group_name'	=> $group_name,
-			));
-			$phpbb_notifications->delete_notifications('notification.type.group_request', $user_id_ary, $group_id);
-
 			$log = 'LOG_USERS_APPROVED';
 		break;
 
@@ -3191,28 +3616,6 @@ function group_user_attributes($action, $group_id, $user_id_ary = false, $userna
 			$log = 'LOG_GROUP_DEFAULTS';
 		break;
 	}
-
-	/**
-	* Event to perform additional actions on setting user group attributes
-	*
-	* @event core.user_set_group_attributes
-	* @var	int		group_id			ID of the group
-	* @var	string	group_name			Name of the group
-	* @var	array	user_id_ary			IDs of the users to set group attributes
-	* @var	array	username_ary		Names of the users to set group attributes
-	* @var	array	group_attributes	Group attributes which were changed
-	* @var	string	action				Action to perform over the group members
-	* @since 3.1.10-RC1
-	*/
-	$vars = array(
-		'group_id',
-		'group_name',
-		'user_id_ary',
-		'username_ary',
-		'group_attributes',
-		'action',
-	);
-	extract($phpbb_dispatcher->trigger_event('core.user_set_group_attributes', compact($vars)));
 
 	// Clear permissions cache of relevant users
 	$auth->acl_clear_prefetch($user_id_ary);
@@ -3271,14 +3674,28 @@ function group_validate_groupname($group_id, $group_name)
 }
 
 /**
+* Clear user color cache.
+*
+* @param => user_id
+* @return => true on success
+*/
+function clear_user_color_cache($user_id)
+{
+	global $phpEx;
+	$dir = ((@file_exists(USERS_CACHE_FOLDER)) ? USERS_CACHE_FOLDER : @phpbb_realpath(USERS_CACHE_FOLDER));
+	@unlink($dir . 'sql_' . POST_USERS_URL . '_' . md5(user_color_sql($user_id)) . '.' . $phpEx);
+	return true;
+}
+
+/**
 * Set users default group
 *
 * @access private
 */
 function group_set_user_default($group_id, $user_id_ary, $group_attributes = false, $update_listing = false)
 {
-	global $config, $phpbb_container, $db, $phpbb_dispatcher;
-
+	global $board_config, $phpbb_container, $db, $phpbb_dispatcher;
+	$cache = new cache();
 	if (empty($user_id_ary))
 	{
 		return;
@@ -3389,28 +3806,14 @@ function group_set_user_default($group_id, $user_id_ary, $group_attributes = fal
 			WHERE " . $db->sql_in_set('topic_last_poster_id', $user_id_ary);
 		$db->sql_query($sql);
 
-		if (in_array($config['newest_user_id'], $user_id_ary))
+		if (in_array($board_config['newest_user_id'], $user_id_ary))
 		{
-			$config->set('newest_user_colour', $sql_ary['user_colour'], false);
+			$board_config->set('newest_user_colour', $sql_ary['user_colour'], false);
 		}
 	}
 
 	// Make all values available for the event
 	$sql_ary = $updated_sql_ary;
-
-	/**
-	* Event when the default group is set for an array of users
-	*
-	* @event core.user_set_default_group
-	* @var	int		group_id			ID of the group
-	* @var	array	user_id_ary			IDs of the users
-	* @var	array	group_attributes	Group attributes which were changed
-	* @var	array	update_listing		Update the list of moderators and foes
-	* @var	array	sql_ary				User attributes which were changed
-	* @since 3.1.0-a1
-	*/
-	$vars = array('group_id', 'user_id_ary', 'group_attributes', 'update_listing', 'sql_ary');
-	extract($phpbb_dispatcher->trigger_event('core.user_set_default_group', compact($vars)));
 
 	if ($update_listing)
 	{
@@ -3418,7 +3821,8 @@ function group_set_user_default($group_id, $user_id_ary, $group_attributes = fal
 	}
 
 	// Because some tables/caches use usercolour-specific data we need to purge this here.
-	$phpbb_container->get('cache.driver')->destroy('sql', MODERATOR_CACHE_TABLE);
+	$cache->get('cache.driver');
+	$cache->destroy('sql', MODERATOR_CACHE_TABLE);
 }
 
 /**
@@ -3609,6 +4013,11 @@ function remove_newly_registered($user_id, $user_data = false)
 		{
 			$user_data  = $user_row;
 		}
+	}
+
+	if (empty($user_data['user_new']))
+	{
+		return false;
 	}
 
 	$sql = 'SELECT group_id

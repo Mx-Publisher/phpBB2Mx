@@ -1,171 +1,279 @@
 <?php
-/**
-*
-* This file is part of the phpBB Forum Software package.
-*
-* @copyright (c) phpBB Limited <https://www.phpbb.com>
-* @license GNU General Public License, version 2 (GPL-2.0)
-*
-* For full copyright and license information, please see
-* the docs/CREDITS.txt file.
-*
-*/
+/***************************************************************************
+ *                                common.php
+ *                            -------------------
+ *   begin                : Saturday, Feb 23, 2001
+ *   copyright            : (C) 2001 The phpBB Group
+ *   email                : support@phpbb.com
+ *
+ *   $Id: common.php,v 1.3 2011/03/05 10:31:04 orynider Exp $
+ *
+ ***************************************************************************/
 
-/**
-* Minimum Requirement: PHP 5.4.0
-*/
+/***************************************************************************
+ *
+ *   This program is free software; you can redistribute it and/or modify
+ *   it under the terms of the GNU General Public License as published by
+ *   the Free Software Foundation; either version 2 of the License, or
+ *   (at your option) any later version.
+ *
+ ***************************************************************************/
 
-if (!defined('IN_PHPBB'))
+if ( !defined('IN_PHPBB') )
 {
-	exit;
+	die("Hacking attempt");
 }
 
-require($phpbb_root_path . 'includes/startup.' . $phpEx);
-require($phpbb_root_path . 'phpbb/class_loader.' . $phpEx);
+//This is for MXP Forum Hack.To show the forum inside the cms page or not.
+//define('IN_CMS', true);
 
-$phpbb_class_loader = new \phpbb\class_loader('phpbb\\', "{$phpbb_root_path}phpbb/", $phpEx);
-$phpbb_class_loader->register();
+//error_reporting  (E_ERROR | E_WARNING | E_PARSE); // This will NOT report uninitialized variables
+//error_reporting(E_ALL ^ E_NOTICE); // Report all errors, except notices
+//
+error_reporting(E_ALL & ~E_NOTICE & ~E_STRICT);
 
-$phpbb_config_php_file = new \phpbb\config_php_file($phpbb_root_path, $phpEx);
-extract($phpbb_config_php_file->get_all());
-
-if (!defined('PHPBB_ENVIRONMENT'))
+// If we are on PHP >= 6.0.0 we do not need some code
+if (version_compare(PHP_VERSION, '5.3.0', '>='))
 {
-	@define('PHPBB_ENVIRONMENT', 'production');
-}
-
-if (!defined('PHPBB_INSTALLED'))
-{
-	// Redirect the user to the installer
-	require($phpbb_root_path . 'includes/functions.' . $phpEx);
-
-	// We have to generate a full HTTP/1.1 header here since we can't guarantee to have any of the information
-	// available as used by the redirect function
-	$server_name = (!empty($_SERVER['HTTP_HOST'])) ? strtolower($_SERVER['HTTP_HOST']) : ((!empty($_SERVER['SERVER_NAME'])) ? $_SERVER['SERVER_NAME'] : getenv('SERVER_NAME'));
-	$server_port = (!empty($_SERVER['SERVER_PORT'])) ? (int) $_SERVER['SERVER_PORT'] : (int) getenv('SERVER_PORT');
-	$secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 1 : 0;
-
-	if (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')
-	{
-		$secure = 1;
-		$server_port = 443;
-	}
-
-	$script_name = (!empty($_SERVER['PHP_SELF'])) ? $_SERVER['PHP_SELF'] : getenv('PHP_SELF');
-	if (!$script_name)
-	{
-		$script_name = (!empty($_SERVER['REQUEST_URI'])) ? $_SERVER['REQUEST_URI'] : getenv('REQUEST_URI');
-	}
-
-	// $phpbb_root_path accounts for redirects from e.g. /adm
-	$script_path = trim(dirname($script_name)) . '/' . $phpbb_root_path . 'install/app.' . $phpEx;
-	// Replace any number of consecutive backslashes and/or slashes with a single slash
-	// (could happen on some proxy setups and/or Windows servers)
-	$script_path = preg_replace('#[\\\\/]{2,}#', '/', $script_path);
-
-	// Eliminate . and .. from the path
-	require($phpbb_root_path . 'phpbb/filesystem.' . $phpEx);
-	$script_path = \phpbb\filesystem\helper::clean_path($script_path);
-
-	$url = (($secure) ? 'https://' : 'http://') . $server_name;
-
-	if ($server_port && (($secure && $server_port <> 443) || (!$secure && $server_port <> 80)))
-	{
-		// HTTP HOST can carry a port number...
-		if (strpos($server_name, ':') === false)
-		{
-			$url .= ':' . $server_port;
-		}
-	}
-
-	$url .= $script_path;
-	header('Location: ' . $url);
-	exit;
-}
-
-// In case $phpbb_adm_relative_path is not set (in case of an update), use the default.
-$phpbb_adm_relative_path = (isset($phpbb_adm_relative_path)) ? $phpbb_adm_relative_path : 'adm/';
-$phpbb_admin_path = (defined('PHPBB_ADMIN_PATH')) ? PHPBB_ADMIN_PATH : $phpbb_root_path . $phpbb_adm_relative_path;
-
-// Include files
-require($phpbb_root_path . 'includes/functions.' . $phpEx);
-require($phpbb_root_path . 'includes/functions_content.' . $phpEx);
-include($phpbb_root_path . 'includes/functions_compatibility.' . $phpEx);
-
-require($phpbb_root_path . 'includes/constants.' . $phpEx);
-require($phpbb_root_path . 'includes/utf/utf_tools.' . $phpEx);
-
-if (PHPBB_ENVIRONMENT === 'development')
-{
-	\phpbb\debug\debug::enable();
+	/**
+	* @ignore
+	*/
+	define('STRIP', false);
 }
 else
 {
-	set_error_handler(defined('PHPBB_MSG_HANDLER') ? PHPBB_MSG_HANDLER : 'msg_handler');
-}
+	@set_magic_quotes_runtime(0);
 
-$phpbb_class_loader_ext = new \phpbb\class_loader('\\', "{$phpbb_root_path}ext/", $phpEx);
-$phpbb_class_loader_ext->register();
-
-// Set up container
-try
-{
-	$phpbb_container_builder = new \phpbb\di\container_builder($phpbb_root_path, $phpEx);
-	$phpbb_container = $phpbb_container_builder->with_config($phpbb_config_php_file)->get_container();
-}
-catch (InvalidArgumentException $e)
-{
-	if (PHPBB_ENVIRONMENT !== 'development')
+	// Be paranoid with passed vars
+	if (@ini_get('register_globals') == '1' || strtolower(@ini_get('register_globals')) == 'on' || !function_exists('ini_get'))
 	{
-		trigger_error(
-			'The requested environment ' . PHPBB_ENVIRONMENT . ' is not available.',
-			E_USER_ERROR
-		);
+		@deregister_globals();
 	}
-	else
+
+	define('STRIP', (get_magic_quotes_gpc()) ? true : false);
+}
+
+//Temp fix for timezone
+if (@function_exists('date_default_timezone_set') && @function_exists('date_default_timezone_get'))
+{
+	@date_default_timezone_set(@date_default_timezone_get());
+}
+
+// The following code (unsetting globals)
+// Thanks to Matt Kavanagh and Stefan Esser for providing feedback as well as patch files
+
+// PHP5 with register_long_arrays off? This is requested in class mx_request_vars, do not change!
+if (@phpversion() >= '5.0.0' && (!@ini_get('register_long_arrays') || @ini_get('register_long_arrays') == '0' || strtolower(@ini_get('register_long_arrays')) == 'off'))
+{
+	$HTTP_POST_VARS 		= $_POST;
+	$HTTP_GET_VARS 			= $_GET;
+	$HTTP_SERVER_VARS 	= $_SERVER;
+	$HTTP_COOKIE_VARS 	= $_COOKIE;
+	$HTTP_ENV_VARS 			= $_ENV;
+	$HTTP_POST_VARS 		= $_FILES;
+
+	// _SESSION is the only superglobal which is conditionally set
+	if (isset($_SESSION))
 	{
-		throw $e;
+		$HTTP_SESSION_VARS = $_SESSION;
 	}
 }
 
-$phpbb_class_loader->set_cache($phpbb_container->get('cache.driver'));
-$phpbb_class_loader_ext->set_cache($phpbb_container->get('cache.driver'));
-
-$phpbb_container->get('dbal.conn')->set_debug_sql_explain($phpbb_container->getParameter('debug.sql_explain'));
-$phpbb_container->get('dbal.conn')->set_debug_load_time($phpbb_container->getParameter('debug.load_time'));
-
-require($phpbb_root_path . 'includes/compatibility_globals.' . $phpEx);
-
-register_compatibility_globals();
-
-if (@is_file($phpbb_root_path . $config['exts_composer_vendor_dir'] . '/autoload.php'))
+// Protect against GLOBALS tricks
+if (isset($_POST['GLOBALS']) || isset($_POST['GLOBALS']) || isset($_GET['GLOBALS']) || isset($_COOKIE['GLOBALS']))
 {
-	require_once($phpbb_root_path . $config['exts_composer_vendor_dir'] . '/autoload.php');
+	die("Hacking attempt");
 }
 
-// Add own hook handler
-require($phpbb_root_path . 'includes/hooks/index.' . $phpEx);
-$phpbb_hook = new phpbb_hook(array('exit_handler', 'phpbb_user_session_handler', 'append_sid', array('template', 'display')));
-
-/* @var $phpbb_hook_finder \phpbb\hook\finder */
-$phpbb_hook_finder = $phpbb_container->get('hook_finder');
-
-foreach ($phpbb_hook_finder->find() as $hook)
+// Protect against _SESSION tricks
+if (isset($_SESSION) && !is_array($_SESSION))
 {
-	@include($phpbb_root_path . 'includes/hooks/' . $hook . '.' . $phpEx);
+	die("Hacking attempt");
 }
+
+/**/
+if (@ini_get('register_globals') == '1' || strtolower(@ini_get('register_globals')) == 'on')
+{
+	// PHP4+ path
+	$not_unset = array('_GET', '_POST', '_COOKIE', '_SERVER', '_SESSION', '_ENV', '_POST', 'phpEx', 'phpbb_root_path');
+
+	// Not only will array_merge give a warning if a parameter
+	// is not an array, it will actually fail. So we check if
+	// _SESSION has been initialised.
+	if (!isset($_SESSION) || !is_array($_SESSION))
+	{
+		$_SESSION = array();
+	}
+
+	// Merge all into one extremely huge array; unset
+	// this later
+	$input = array_merge($_GET, $_POST, $_COOKIE, $_SERVER, $_SESSION, $_ENV, $_POST);
+
+	unset($input['input']);
+	unset($input['not_unset']);
+
+	while (list($var,) = @each($input))
+	{
+		if (in_array($var, $not_unset))
+		{
+			die('Hacking attempt!');
+		}
+		unset($$var);
+	}
+
+	unset($input);
+}
+/**/
+
+//
+// Define some basic configuration arrays this also prevents
+// malicious rewriting of language and otherarray values via
+// URI params
+//
+$board_config = array();
+$userdata = array();
+$theme = array();
+$images = array();
+$lang = array();
+$nav_links = array();
+$dss_seeded = false;
+$gen_simple_header = FALSE;
+
+include($phpbb_root_path . 'config.'.$phpEx);
+
+if( !defined("PHPBB_INSTALLED") )
+{
+	header('Location: ' . $phpbb_root_path . 'install/install.' . $phpEx);
+	exit;
+}
+
+// Include files
+require($phpbb_root_path . 'includes/template.' . $phpEx);
+require($phpbb_root_path . 'includes/sessions.' . $phpEx);
+require($phpbb_root_path . 'includes/cache.' . $phpEx);
+require($phpbb_root_path . 'includes/auth.' . $phpEx);
+require($phpbb_root_path . 'includes/functions.' . $phpEx);
+require($phpbb_root_path . 'includes/constants.' . $phpEx);
+require($phpbb_root_path . 'includes/db/' . $dbms . '.' . $phpEx);
+require($phpbb_root_path . 'includes/utf/utf_tools.' . $phpEx);
+require($phpbb_root_path . 'vendor/paragonie/random_compat/lib/random.' . $phpEx);
+// We do not need this any longer, unset for safety purposes
+unset($dbpasswd);
+
+// false param: enable super globals, so the created request class does not
+// make super globals inaccessible everywhere outside this function.
+$request = new request_vars('', false);
 
 /**
-* Main event which is triggered on every page
-*
-* You can use this event to load function files and initiate objects
-*
-* NOTE:	At this point the global session ($user) and permissions ($auth)
-*		do NOT exist yet. If you need to use the user object
-*		(f.e. to include language files) or need to check permissions,
-*		please use the core.user_setup event instead!
-*
-* @event core.common
-* @since 3.1.0-a1
+* Instantiate the language class
+* $language->_load_lang($phpbb_root_path, 'lang_main');
 */
-$phpbb_dispatcher->dispatch('core.common');
+$language = new language();
+
+// this is needed to prevent unicode normalization
+$super_globals_disabled = $request->super_globals_disabled();
+// enable super globals to get literal value
+if (!$super_globals_disabled)
+{
+	//$request->disable_super_globals();
+}
+
+//
+// Obtain and encode users IP
+//
+// I'm removing HTTP_X_FORWARDED_FOR ... this may well cause other problems such as
+// private range IP's appearing instead of the guilty routable IP, tough, don't
+// even bother complaining ... go scream and shout at the idiots out there who feel
+// "clever" is doing harm rather than good ... karma is a great thing ... :)
+//
+$client_ip = $request->server('REMOTE_ADDR');
+$user_ip = encode_ip($client_ip);
+
+//
+// Setup forum wide options, if this fails
+// then we output a CRITICAL_ERROR since
+// basic forum information is not available
+//
+
+// We need to fill the config to let internal functions correctly work
+$phpbb_config = new config($db, new cache(), CONFIG_TABLE);
+$board_config = $phpbb_config->config;
+
+/** /
+$sql = "SELECT *
+	FROM " . CONFIG_TABLE;
+if( !($result = $db->sql_query($sql)) )
+{
+	message_die(CRITICAL_ERROR, "Could not query config information", "", __LINE__, __FILE__, $sql);
+}
+while ( $row = $db->sql_fetchrow($result) )
+{
+	$board_config[$row['config_name']] = $row['config_value'];
+}
+/**/
+
+define('PHPBB_ENVIRONMENT', 'production');
+define('PHPBB_VERSION', '2'.$board_config['version']);
+
+// usually we would need every single constant here - and it would be consistent. For 3.0.x, use a dirty hack... :(
+
+// Define needed constants
+define('CHMOD_ALL', 7);
+define('CHMOD_READ', 4);
+define('CHMOD_WRITE', 2);
+define('CHMOD_EXECUTE', 1);
+
+$mode = request_var('mode', 'overview');
+$sub = request_var('sub', '');
+
+$auth = new auth();
+$template = new phpbb_Template();
+/* @var $user \phpbb\user */
+$user = new user(new cache(), $request, $template, $board_config, $db, $phpbb_root_path, $phpEx);
+$cache = new cache();
+
+if (file_exists('install') || file_exists('contrib'))
+{
+	message_die(GENERAL_MESSAGE, 'Please_remove_install_contrib');
+}
+
+//
+// Show 'Board is disabled' message if needed.
+//
+if ($board_config['board_disable'] && !defined("IN_ADMIN") && !defined("IN_LOGIN"))
+{
+	message_die(GENERAL_MESSAGE, 'Board_disable', 'Information');
+}
+
+/*
+ + required and sometime defined in icy styles
+*/
+@define('IP_ROOT_PATH', $phpbb_root_path);
+
+/*
+ *   Set mx_forum or mx_phpbb 
+ *   integration module name
+ *   if You have MX-Publisher CMS
+*/
+if( !defined('IN_ADMIN') && defined('IN_CMS') )
+{
+	$module_name = 'mx_forum';
+	$mx_root_path = './../';
+	$mx_table_prefix = 'mx_';
+	$module_root_path = $mx_root_path  . 'modules/' . $module_name . '/';
+	
+	if (function_exists('custom_file_exists') && (@custom_file_exists($modules_root_path.'includes/forum_hack.'.$phpEx)) )
+	{
+		include_once($module_root_path.'includes/forum_hack.'.$phpEx);
+	}
+	elseif (@file_exists($module_root_path.'includes/forum_hack.'.$phpEx))
+	{
+		include_once($module_root_path.'includes/forum_hack.'.$phpEx);
+	}	
+	@define('PORTAL_BACKEND', 'phpbb2');
+	@define('CMS_ROOT_PATH', $mx_root_path);	
+}
+/*
+ *   mx_forum or mx_phpbb
+*/
+?>

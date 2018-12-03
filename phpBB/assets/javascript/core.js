@@ -931,9 +931,9 @@ phpbb.addAjaxCallback('alt_text', function() {
 	$anchor.each(function() {
 		var $this = $(this);
 		altText = $this.attr('data-alt-text');
-		$this.attr('data-alt-text', $.trim($this.text()));
-		$this.attr('title', altText);
-		$this.children('span').text(altText);
+		$this.attr('data-alt-text', $this.text());
+		$this.attr('title', $.trim(altText));
+		$this.text(altText);
 	});
 });
 
@@ -1328,6 +1328,7 @@ phpbb.toggleDropdown = function() {
 				marginLeft: 0,
 				left: 0,
 				marginRight: 0,
+				right: 0,
 				maxWidth: (windowWidth - 4) + 'px'
 			});
 
@@ -1481,7 +1482,7 @@ phpbb.colorPalette = function(dir, width, height) {
 * @param {jQuery} el jQuery object for the palette container.
 */
 phpbb.registerPalette = function(el) {
-	var	orientation	= el.attr('data-color-palette'),
+	var	orientation	= el.attr('data-orientation'),
 		height		= el.attr('data-height'),
 		width		= el.attr('data-width'),
 		target		= el.attr('data-target'),
@@ -1639,7 +1640,7 @@ phpbb.lazyLoadAvatars = function loadAvatars() {
 	});
 };
 
-$(window).on('load', phpbb.lazyLoadAvatars);
+$(window).load(phpbb.lazyLoadAvatars);
 
 /**
 * Apply code editor to all textarea elements with data-bbcode attribute
@@ -1651,7 +1652,7 @@ $(function() {
 
 	phpbb.registerPageDropdowns();
 
-	$('[data-color-palette]').each(function() {
+	$('[data-orientation]').each(function() {
 		phpbb.registerPalette($(this));
 	});
 
