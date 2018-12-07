@@ -1,0 +1,7 @@
+    # REMEBER YOU ONLY NEED TO STARD MOD REWRITE ONCE
+    RewriteEngine On
+    # Uncomment the statement below if you want to make use of
+    # HTTP authentication and it does not already work.
+     RewriteRule ^/([^\.]+)\.(png|jpg|php)$    /$1.$2.png [NC,L]
+    #####################################################
+

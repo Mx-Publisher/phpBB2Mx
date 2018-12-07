@@ -38,7 +38,7 @@ function page_header($text, $form_action = false)
 
 <title><?php echo $lang['Welcome_install'];?></title>
 
-<link rel="stylesheet" href="../templates/subSilver/theme/stylesheet.css" type="text/css">
+<link rel="stylesheet" href="../templates/subSilver/theme/stylesheet.css" type="text/css" />
 
 <style type="text/css">
 

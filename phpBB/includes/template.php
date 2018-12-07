@@ -2185,6 +2185,7 @@ class Template
 		//$code = preg_replace('#{L_([a-zA-Z0-9_\.]+)(\|[^}]+?)?}#', '{{ lang(\'$1\')$2 }}', $code);
 		$code = str_replace("{{ ", "{", $code);
 		$code = str_replace(" }}", "}", $code);
+
 		$code = str_replace("lang", "L_", $code);
 		$code = str_replace("('", "", $code);
 		$code = str_replace("')", "", $code);

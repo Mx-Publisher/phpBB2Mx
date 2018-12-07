@@ -2,15 +2,22 @@
 <html xmlns="http://www.w3.org/1999/xhtml" dir="{S_CONTENT_DIRECTION}" lang="{S_USER_LANG}" xml:lang="{S_USER_LANG}">
 <head>
 
-<meta http-equiv="content-type" content="text/html; charset={S_CONTENT_ENCODING}" />
-<meta http-equiv="content-language" content="{S_USER_LANG}" />
-<meta http-equiv="content-style-type" content="text/css" />
+<meta http-equiv="Content-Type" name="Resource-Type" content="text/html" />
+<meta http-equiv="Content-Type" name="Encoding" charset="{S_CONTENT_ENCODING}" />
+<meta http-equiv="Content-Language" content="{S_USER_LANG}" />
+<meta http-equiv="Content-Style-Type" content="text/css" />
+
 <meta http-equiv="imagetoolbar" content="no" />
-<meta name="resource-type" content="document" />
+<meta name="viewport" content="width=device-width; initial-scale=1.0; minimum-scale=1.0; maximum-scale=2.0"/>
+
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="gray" />
+
 <meta name="distribution" content="global" />
+
 <meta name="copyright" content="2000, 2002, 2005, 2007 phpBB Group" />
-<meta name="keywords" content="" />
-<meta name="description" content="" />
+<meta name="keywords" content="phpBB, Creating, Comunities, Comunity, Forum" />
+<meta name="description" content="{SITENAME}" />
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 {META}
 <title><!-- IF UNREAD_NOTIFICATIONS_COUNT -->({UNREAD_NOTIFICATIONS_COUNT}) <!-- ENDIF --><!-- IF not S_VIEWTOPIC and not S_VIEWFORUM -->{SITENAME} - <!-- ENDIF --><!-- IF S_IN_MCP -->{L_MCP} - <!-- ELSEIF S_IN_UCP -->{L_UCP} - <!-- ENDIF -->{PAGE_TITLE}<!-- IF S_VIEWTOPIC or S_VIEWFORUM --> - {SITENAME}<!-- ENDIF --></title>
@@ -48,7 +55,6 @@
 <!-- ENDIF -->
 
 <link href="{T_FONT_AWESOME_LINK}" rel="stylesheet" type="text/css" />
-<link href="{T_FONT_IONIC_LINK}" rel="stylesheet" type="text/css" />
 <link href="{T_STYLESHEET_LINK}" rel="stylesheet" type="text/css" />
 <link href="{T_STYLESHEET_LANG_LINK}" rel="stylesheet" type="text/css" />
 
@@ -196,8 +202,8 @@ function marklist(id, name, state)
 <table width="100%" cellspacing="0" cellpadding="1" border="0" align="center" class="table1 main_table">
 	
 	<!-- EVENT overall_header_headerbar_before -->	
-	<thead>	
-	<tr class="bg1">		
+	<thead>
+	<tr class="bg1">
 		<td class="bodyline"><a id="logo" class="imageset site_logo responsive-hide" href="{U_INDEX}"><!-- {SITE_LOGO_IMG}--></a>
 			
 			<div id="logodesc">
@@ -206,7 +212,8 @@ function marklist(id, name, state)
 					<tbody>
 					<tr class="bg1">
 						
-						<td class="table1 responsive-hide" align="left" valign="top"><a href="<!-- IF U_SITE_HOME -->{U_SITE_HOME}<!-- ELSE -->{U_INDEX}<!-- ENDIF -->" class="imageset" ><img src="{T_THEME_PATH}/images/{SITE_LOGO_IMG}" border="0" alt="{L_INDEX}" vspace="1" /></a></td>
+						<td class="table1 responsive-hide" style="text-align:center;" width="5%">&nbsp;&nbsp;</td>
+						
 						<td class="table1 responsive-hide" align="center" valign="middle" width="15%">
 							<span class="responsive-hide">&nbsp;&nbsp;</span>
 						</td>
@@ -281,10 +288,9 @@ function marklist(id, name, state)
 	<div id="page-header" role="navigation">
 
 	<tr id="nav-main" class="nav-main linklist bg2" role="menubar">
-				
-		<td class="genmed" style="width: 5%; text-align: center;">	
-							
-		<!-- EVENT overall_header_navigation_prepend -->				
+	
+		<td class="genmed" style="width: 5%; text-align: center;">
+		
 		<table id="nav-main" class="table1 nav-main linklist" cellspacing="6" cellpadding="2" border="0" role="menubar">
 		<div class="navbar-top" role="navigation">
 		<thead>
@@ -566,12 +572,24 @@ function marklist(id, name, state)
 						<!-- ENDIF -->
 						
 	<!-- IF S_REGISTERED_USER -->
-						<td data-last-responsive="true" class="forumtitle genmed" height="15" align="center" valign="top">	
+		<td data-last-responsive="true" id="username_registred_user" class="quick-links dropdown-container forumtitle genmed" height="15" align="center" valign="top">
+
 		<!-- EVENT navbar_header_user_profile_prepend -->
 		<div id="username_logged_in" class="rightside <!-- IF CURRENT_USER_AVATAR --> no-bulletin<!-- ENDIF -->" data-skip-responsive="true">
+				<a href="{U_PROFILE}" class="header-avatar dropdown-trigger">
+				<span class="mainmenu dropdown-trigger">
+				</span>	
+
+				<!-- IF CURRENT_USER_AVATAR -->
+				{CURRENT_USER_AVATAR}
+				<!-- ELSE -->
+				<!-- ENDIF --> 
+				{CURRENT_USERNAME_SIMPLE}
+				</a>
 			<!-- EVENT navbar_header_username_prepend -->
-			<div class="header-profile dropdown-container">
-				<a href="{U_PROFILE}" class="header-avatar dropdown-trigger"><!-- IF CURRENT_USER_AVATAR -->{CURRENT_USER_AVATAR} <!-- ENDIF --> {CURRENT_USERNAME_SIMPLE}</a>
+			<div class="quick-links header-profile dropdown-container">
+
+
 				<div class="dropdown">
 					<div class="pointer"><div class="pointer-inner"></div></div>
 					<ul class="dropdown-contents" role="menu">
@@ -609,7 +627,6 @@ function marklist(id, name, state)
 			</div>
 			<!-- EVENT navbar_header_username_append -->
 		</div>
-
 	<!-- ELSE -->
 		<div class="rightside" data-skip-responsive="true">
 			<a href="{U_LOGIN_LOGOUT}" title="{L_LOGIN_LOGOUT}" accesskey="x" role="menuitem">
