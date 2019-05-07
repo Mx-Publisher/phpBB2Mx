@@ -70,6 +70,25 @@ CREATE TABLE phpbb_banlist (
    KEY ban_ip_user_id (ban_ip, ban_userid)
 );
 
+# --------------------------------------------------------
+#
+# Table structure for table 'phpbb_bbcodes'
+#
+CREATE TABLE `phpbb_bbcodes` (
+	bbcode_id MEDIUMINT(8) UNSIGNED NOT NULL auto_increment,
+	bbcode_tag VARCHAR(16) DEFAULT '' NOT NULL,
+	bbcode_helpline VARCHAR(255) DEFAULT '' NOT NULL,
+	display_on_posting TINYINT(1) UNSIGNED DEFAULT '0' NOT NULL,
+	bbcode_match TEXT NOT NULL,
+	bbcode_tpl MEDIUMTEXT NOT NULL,
+	first_pass_match MEDIUMTEXT NOT NULL,
+	first_pass_replace MEDIUMTEXT NOT NULL,
+	second_pass_match MEDIUMTEXT NOT NULL,
+	second_pass_replace MEDIUMTEXT NOT NULL,
+	PRIMARY KEY (bbcode_id),
+	KEY display_on_post (display_on_posting)
+);
+
 
 # --------------------------------------------------------
 #

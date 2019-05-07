@@ -1583,7 +1583,7 @@ class tools
 						$sql .= ' NOT NULL';
 					}
 				}
-				if (isset($column_data['default']) && !empty($column_data['default']))
+				if (isset($column_data['default']))
 				{
 					$sql .= ' DEFAULT ' . $column_data['default'];
 				}

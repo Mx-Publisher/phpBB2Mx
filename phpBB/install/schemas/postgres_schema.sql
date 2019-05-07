@@ -80,7 +80,24 @@ CREATE TABLE phpbb_banlist (
 );
 CREATE  INDEX ban_userid_phpbb_banlist_index ON phpbb_banlist (ban_userid);
 
-
+/* --------------------------------------------------------
+  Table structure for table phpbb_bbcode
+-------------------------------------------------------- */
+CREATE TABLE phpbb_bbcodes (
+   bbcode_id int DEFAULT nextval('phpbb_bbcode_id_seq'::text) NOT NULL,
+	bbcode_tag varchar(16) DEFAULT '' NOT NULL,
+	bbcode_helpline varchar(255) DEFAULT '' NOT NULL,
+	display_on_posting int2 UNSIGNED DEFAULT '0' NOT NULL,
+	bbcode_match text NOT NULL,
+	bbcode_tpl int4 NOT NULL,
+	first_pass_match int4 NOT NULL,
+	first_pass_replace int4 NOT NULL,
+	second_pass_match int4 NOT NULL,
+	second_pass_replace int4 NOT NULL,
+   CONSTRAINT phpbb_bbcodes_pkey PRIMARY KEY (bbcode_id)
+);
+CREATE  INDEX display_on_posting_phpbb_bbcodes_index ON phpbb_bbcodes (display_on_posting);
+   
 /* --------------------------------------------------------
   Table structure for table phpbb_categories
 -------------------------------------------------------- */

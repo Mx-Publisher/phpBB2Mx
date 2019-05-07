@@ -35,6 +35,20 @@ CREATE TABLE [phpbb_banlist] (
 ) ON [PRIMARY]
 GO
 
+CREATE TABLE [phpbb_bbcodes] (
+	[bbcode_id] [int] IDENTITY (1, 1) NOT NULL ,
+	[bbcode_tag] [varchar] (16) NULL,
+	[bbcode_helpline] [varchar] (255) NULL,
+	[display_on_posting] [tinyint] NOT NULL,
+	[bbcode_match] [text] NOT NULL,
+	[bbcode_tpl] [mediumtext] NOT NULL,
+	[first_pass_match] [mediumtext] NOT NULL,
+	[first_pass_replace] [mediumtext] NOT NULL,
+	[second_pass_match] [mediumtext] NOT NULL,
+	[second_pass_replace] [mediumtext] NOT NULL
+) ON [PRIMARY]
+GO
+
 CREATE TABLE [phpbb_categories] (
 	[cat_id] [int] IDENTITY (1, 1) NOT NULL ,
 	[cat_title] [varchar] (50) NOT NULL ,

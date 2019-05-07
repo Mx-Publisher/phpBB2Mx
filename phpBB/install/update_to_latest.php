@@ -60,7 +60,7 @@ include($phpbb_root_path.'includes/db/'.$dbms.'.'.$phpEx); // Load dbal and init
 //
 //
 //
-$updates_to_version = '.0.24-a';
+$updates_to_version = '.0.24-a2';
 //
 //
 //
@@ -684,13 +684,13 @@ switch ($row['config_value'])
 		break;
 
 	case '.0.24':
-	case '.0.24-a':
+	case '.0.24-a1':
 		// Add search time to the search table
 		switch (SQL_LAYER)
 		{
 			case 'mysql':
 			case 'mysql4':
-			case 'mysqli':			
+			case 'mysqli':
 				$sql[] = "ALTER TABLE " . FORUMS_TABLE . "
 					ADD COLUMN forum_parent int(11) DEFAULT '0' NOT NULL";
 				break;
@@ -713,13 +713,14 @@ switch ($row['config_value'])
 					forum_parent int NOT NULL";
 				break;
 		}
+		
 		// Add tables for visual confirmation ... saves me the trouble of writing a seperate
 		// script :D
 		switch (SQL_LAYER)
 		{
 			case 'mysql':
 			case 'mysql4':
-			case 'mysqli':			
+			case 'mysqli':
 				$sql[] = 'CREATE TABLE ' . $table_prefix . 'zebra (user_id mediumint(8) UNSIGNED DEFAULT \'0\' NOT NULL, zebra_id mediumint(8) UNSIGNED DEFAULT \'0\' NOT NULL, friend tinyint(1) UNSIGNED DEFAULT \'0\' NOT NULL, foe tinyint(1) UNSIGNED DEFAULT \'0\' NOT NULL, PRIMARY KEY (user_id, zebra_id))';
 				break;
 
@@ -739,7 +740,25 @@ switch ($row['config_value'])
 				$sql[] = 'CREATE TABLE ' . $table_prefix . 'zebra (user_id mediumint(8) NOT NULL,  zebra_id mediumint(8) NOT NULL, friend tinyint(1) DEFAULT \'0\', foe tinyint(1) DEFAULT \'0\', CONSTRAINT {$table_prefix}confirm_pkey PRIMARY KEY (user_id, zebra_id))';
 				break;
 		}
-		break;		
+		
+	case '.0.24-a2':
+	
+		$sql[] = "CREATE TABLE `" . $table_prefix . "bbcodes` (
+			bbcode_id mediumint(8) UNSIGNED NOT NULL auto_increment,
+			bbcode_tag varchar(16) DEFAULT '' NOT NULL,
+			bbcode_helpline varchar(255) DEFAULT '' NOT NULL,
+			display_on_posting tinyint(1) UNSIGNED DEFAULT '0' NOT NULL,
+			bbcode_match text NOT NULL,
+			bbcode_tpl mediumtext NOT NULL,
+			first_pass_match mediumtext NOT NULL,
+			first_pass_replace mediumtext NOT NULL,
+			second_pass_match mediumtext NOT NULL,
+			second_pass_replace mediumtext NOT NULL,
+			PRIMARY KEY (bbcode_id),
+			KEY display_on_post (display_on_posting)
+		)";
+		
+		break;
 }
 
 echo "<h2>Updating database schema</h2>\n";
@@ -1190,6 +1209,13 @@ switch ($row['config_value'])
 
 		break;
 
+	case '.0.24-a2':
+	
+		$sql[] = "INSERT INTO `" . $table_prefix . "config` (`config_name`, `config_value`) VALUES ('enable_custom_bbcodes', '0')";
+
+		break;
+
+		
 	default:
 		echo " No updates were required</b></p>\n";
 		break;

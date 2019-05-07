@@ -58,7 +58,7 @@ if ($_GET['sid'] != $userdata['session_id'])
 
 if (!$userdata['session_admin'])
 {
-	//redirect(append_sid("login.$phpEx?redirect=admin/index.$phpEx&admin=1", true));
+	redirect(append_sid("login.$phpEx?redirect=admin/index.$phpEx&admin=1", true));
 }
 
 if (empty($no_page_header))

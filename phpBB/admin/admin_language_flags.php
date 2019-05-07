@@ -380,7 +380,7 @@ else
 
 				case 'ae':
 					$lang_name = 'avestan';
-					$country_name = 'United Arab Emirates';
+					$country_name = 'Persia';
 				break;
 
 				case 'af':
@@ -397,10 +397,12 @@ else
 					$lang_name = 'Anguilla';
 					$country_name = 'Anguilla';
 				break;
+				
 				case 'aj':
 					$lang_name = 'AROMANIAN';
 					$country_name = 'Aromaya';
 				break;
+				
 				case 'ak':
 					$lang_name = 'AKAN';
 					$country_name = '';
@@ -457,6 +459,11 @@ else
 				case 'av':
 					$lang_name = 'avaric';
 					$country_name = '';
+				break;
+
+				case 'av-da':
+					$lang_name = 'AVARIAN_KHANATE';
+					$country_name = 'Daghestanian';
 				break;
 
 				case 'ay':
@@ -972,10 +979,16 @@ else
 				break;
 				
 				case 'hy':
+				case 'hy-am':
 					$lang_name = 'ARMENIAN';
 					$country_name = '';
 				break;
-				
+
+				case 'hy-at':
+					$lang_name = 'ARMENIAN-ARTSAKH';
+					$country_name = 'REPUBLIC_OF_ARTSAKH';
+				break;
+
 				case 'hz':
 					$lang_name = 'herero';
 					$country_name = '';

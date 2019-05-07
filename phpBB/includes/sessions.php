@@ -663,8 +663,8 @@ function session_begin($user_id, $user_ip, $page_id, $auto_create = 0, $enable_a
 			OR ban_userid = $user_id";
 	if ( $user_id != ANONYMOUS )
 	{
-		$sql .= " OR ban_email LIKE '" . str_replace("\'", "''", $userdata['user_email']) . "' 
-			OR ban_email LIKE '" . substr(str_replace("\'", "''", $userdata['user_email']), strpos(str_replace("\'", "''", $userdata['user_email']), "@")) . "'";
+		$sql .= " OR ban_email LIKE " . $userdata['user_email'] . " 
+			OR ban_email LIKE " . $userdata['user_email'];
 	}
 	if ( !($result = $db->sql_query($sql)) )
 	{
@@ -1497,10 +1497,10 @@ class user
 			$this->db_tools->sql_column_add(USERS_TABLE, 'user_allow_massemail', array('column_type_sql' => 'tinyint(1)', 'null' => 'NOT NULL', 'default' => '1', 'after' => 'user_allow_viewemail'), false);
 		}
 		
-		if (!isset($this->data['user_sig']))
+		if (!$this->db->sql_field_exists('user_sig', USERS_TABLE))
 		{
 			print('<p><span style="color: red;"></span></p><i><p>Cheching for user_sig column in USERS_TABLE schema!</p></i>');
-			$this->db_tools->sql_column_add(USERS_TABLE, 'user_sig', array('column_type_sql_default'	=> 'mediumtext ', 'column_type_sql' => 'mediumtext', 'null' => 'NOT NULL', 'default' => '""', 'after' => 'user_sig'), false);
+			$this->db_tools->sql_column_add(USERS_TABLE, 'user_sig', array('column_type_sql_default'	=> 'mediumtext ', 'column_type_sql' => 'mediumtext', 'null' => 'NOT NULL', 'after' => 'user_sig'), false);
 		}
 		
 		if (!$this->db->sql_field_exists('user_sig_bbcode_uid', USERS_TABLE))
@@ -5730,17 +5730,17 @@ class user
 			// Nested img
 			$image_filename = $img;
 			$img_ext = substr(strrchr($image_filename, '.'), 1);
-			$img = basename($image_filename, '.' . $img_ext);			
+			$img = basename($image_filename, '.' . $img_ext);
 			
 			unset($img_name, $image_filename);
 		}
 		else
 		{
-			$img_ext = 'gif';			
+			$img_ext = 'gif';
 		}		
 		
 		switch ($type)
-		{						
+		{
 			case 'filename':
 				return $img . '.' . $img_ext;
 			break;
@@ -5749,15 +5749,15 @@ class user
 				return $prefix . '_' . $img;
 			break;
 			
-			case 'name':		
+			case 'name':
 				return $img;
 			break;
 			
 			case 'ext':
 				return $img_ext;
 			break;
-		}		
-	}	
+		}
+	}
 	
 	/**
 	* Specify/Get image

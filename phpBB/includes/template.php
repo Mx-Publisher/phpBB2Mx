@@ -2079,9 +2079,8 @@ class Template
 		
 		/** Replace some unitialised  page_header() tags **/
 		$code = str_replace('{TEMPLATE_ROOT_PATH}', TEMPLATE_ROOT_PATH, $code);
-		$code = str_replace('{U_PORTAL_ROOT_PATH}', PHBBB_URL, $code);
-		$code = str_replace('{U_PHPBB_ROOT_PATH}', PHPBB_URL, $code);
-		$code = str_replace('{T_MXBB_STYLESHEET}', $user->theme['head_stylesheet'], $code);
+		//$code = str_replace('{U_PHPBB_ROOT_PATH}', PHPBB_URL, $code);
+		$code = str_replace('{T_STYLESHEET}', $user->theme['head_stylesheet'], $code);
 		
 		/** Replace phpBB 2.2 <!-- (END)PHP --> tags **/
 		preg_match_all('#<!-- PHP -->(.*?)<!-- ENDPHP -->#s', $code, $matches);
